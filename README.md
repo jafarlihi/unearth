@@ -12,9 +12,9 @@ Unearth unadvertised job positions by crawling GitHub organizations' web pages!
 
 ## Run
 
-`go build && ./unearth [pull] [process]`
-
 Edit `config.ini` and add your GitHub API token.
+
+`go build && ./unearth [pull] [process]`
 
 Application accepts two arguments of string literals `pull` and `process`.
 
