@@ -154,7 +154,7 @@ func unearth(db *gorm.DB, screenshotDir string) {
 			continue
 		}
 
-		db.Create(&Enriched{GithubId: org.GithubId, Link: org.Link, Positions: strings.Join(positions, ","), Locations: strings.Join(locations, ",")})
+		db.Create(&Enriched{GithubId: org.GithubId, Link: *link, Positions: strings.Join(positions, ","), Locations: strings.Join(locations, ",")})
 		infoLogWithPrefix(org.Login, "Enriched record inserted")
 	}
 }
