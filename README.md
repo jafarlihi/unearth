@@ -34,4 +34,6 @@ L2LINK_KEYWORDS = vacancies,job,position,opportunities
 POSITION_KEYWORDS = Software,Developer,Programmer,Engineer,Backend,Frontend
 POSITION_ANTI_KEYWORDS = Engineering
 LOCATION_KEYWORDS = Remote
+PULL_THREAD_COUNT = 1
+PROCESS_THREAD_COUNT = 4
 ```

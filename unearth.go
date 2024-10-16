@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/chromedp/chromedp"
@@ -25,8 +26,8 @@ func migrateUnearth(db *gorm.DB) {
 	db.AutoMigrate(&Enriched{})
 }
 
-func getMaxEnrichedGithubIdFromDb(db *gorm.DB) uint {
-	var result uint
+func getMaxEnrichedGithubIdFromDb(db *gorm.DB) *uint {
+	var result *uint
 	db.Model(&Enriched{}).Select("max(github_id)").Scan(&result)
 	return result
 }
@@ -123,22 +124,36 @@ func extractData(org Organization, link string, screenshotDir string) ([]string,
 	return positions, locations, nil
 }
 
-func unearth(db *gorm.DB, screenshotDir string) {
-	_ = os.Mkdir(screenshotDir, 0777)
+var nextId atomic.Uint32
 
+func initUnearth(db *gorm.DB) {
 	id := getMaxEnrichedGithubIdFromDb(db)
+	if id == nil {
+		nextId.Store(0)
+		return
+	}
 	var org Organization
 	db.First(&org, "github_id = ?", id)
-	id = org.ID
+	nextId.Store(uint32(org.ID))
+}
+
+func unearth(db *gorm.DB, screenshotDir string) {
+	_ = os.Mkdir(screenshotDir, 0777)
+	retry := false
+	var id uint32
 
 	for {
-		id += 1
+		if !retry {
+			id = nextId.Add(1)
+		} else {
+			retry = false
+		}
 		var org Organization
 		db.First(&org, "id = ?", id)
 		if len(org.Login) == 0 {
-			slog.Debug("Organization iteration couldn't find the next record, sleeping 10 seconds")
-			time.Sleep(time.Second * 10)
-			id -= 1
+			slog.Debug("Organization iteration couldn't find the next record, sleeping 60 seconds")
+			time.Sleep(time.Second * 60)
+			retry = true
 			continue
 		}
 

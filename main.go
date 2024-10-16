@@ -8,6 +8,7 @@ import (
 	"gopkg.in/ini.v1"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 var GITHUB_API_TOKEN string
@@ -16,9 +17,13 @@ var L2_KEYWORDS []string
 var POSITION_KEYWORDS []string
 var POSITION_ANTI_KEYWORDS []string
 var LOCATION_KEYWORDS []string
+var PULL_THREAD_COUNT uint
+var PROCESS_THREAD_COUNT uint
 
 func connectDatabase() *gorm.DB {
-	db, err := gorm.Open(sqlite.Open("unearth.db"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open("unearth.db"), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent)},
+	)
 	if err != nil {
 		panic("failed to connect database")
 	}
@@ -32,6 +37,11 @@ func pullOrgsRoutine(db *gorm.DB, wg *sync.WaitGroup) {
 	if err != nil {
 		slog.Error(err.Error())
 	}
+	wg.Done()
+}
+
+func unearthRoutine(db *gorm.DB, screenshotDir string, wg *sync.WaitGroup) {
+	unearth(db, screenshotDir)
 	wg.Done()
 }
 
@@ -61,17 +71,25 @@ func main() {
 	POSITION_KEYWORDS = cfg.Section("").Key("POSITION_KEYWORDS").Strings(",")
 	POSITION_ANTI_KEYWORDS = cfg.Section("").Key("POSITION_ANTI_KEYWORDS").Strings(",")
 	LOCATION_KEYWORDS = cfg.Section("").Key("LOCATION_KEYWORDS").Strings(",")
+	PULL_THREAD_COUNT, _ = cfg.Section("").Key("PULL_THREAD_COUNT").Uint()
+	PROCESS_THREAD_COUNT, _ = cfg.Section("").Key("PROCESS_THREAD_COUNT").Uint()
 
 	db := connectDatabase()
 
 	var wg sync.WaitGroup
 	if pull {
-		go pullOrgsRoutine(db, &wg)
-		wg.Add(1)
+		for i := 0; i < int(PULL_THREAD_COUNT); i++ {
+			go pullOrgsRoutine(db, &wg)
+			wg.Add(1)
+		}
 	}
 
 	if process {
-		unearth(db, "/tmp/unearth")
+		initUnearth(db)
+		for i := 0; i < int(PROCESS_THREAD_COUNT); i++ {
+			go unearthRoutine(db, "/tmp/unearth", &wg)
+			wg.Add(1)
+		}
 	}
 
 	wg.Wait()
