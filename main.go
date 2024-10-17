@@ -79,16 +79,16 @@ func main() {
 	var wg sync.WaitGroup
 	if pull {
 		for i := 0; i < int(PULL_THREAD_COUNT); i++ {
-			go pullOrgsRoutine(db, &wg)
 			wg.Add(1)
+			go pullOrgsRoutine(db, &wg)
 		}
 	}
 
 	if process {
 		initUnearth(db)
 		for i := 0; i < int(PROCESS_THREAD_COUNT); i++ {
-			go unearthRoutine(db, "/tmp/unearth", &wg)
 			wg.Add(1)
+			go unearthRoutine(db, "/tmp/unearth", &wg)
 		}
 	}
 
